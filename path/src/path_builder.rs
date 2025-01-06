@@ -32,6 +32,15 @@ pub struct PathBuilder {
     pub(crate) move_to_required: bool,
 }
 
+/// Enum representing either a complete path or a path builder.
+#[derive(Clone, Debug)]
+pub enum PathOrBuilder {
+    /// A complete path.
+    Path(Path),
+    /// A path builder.
+    Builder(PathBuilder),
+}
+
 impl PathBuilder {
     /// Creates a new builder.
     pub fn new() -> Self {
@@ -409,21 +418,33 @@ impl PathBuilder {
     ///
     /// Returns `None` when `Path` is empty or has invalid bounds.
     pub fn finish(self) -> Option<Path> {
+        match self.finish_or() {
+            PathOrBuilder::Path(path) => Some(path),
+            PathOrBuilder::Builder(_) => None,
+        }
+    }
+    
+    /// Finishes the builder and returns a `Path`.
+    ///
+    /// Returns self when `Path` is empty or has invalid bounds.
+    pub fn finish_or(self) -> PathOrBuilder {
         if self.is_empty() {
-            return None;
+            return PathOrBuilder::Builder(self);
         }
 
         // Just a move to? Bail.
         if self.verbs.len() == 1 {
-            return None;
+            return PathOrBuilder::Builder(self);
         }
 
-        let bounds = Rect::from_points(&self.points)?;
-
-        Some(Path {
-            bounds,
-            verbs: self.verbs,
-            points: self.points,
-        })
+        if let Some(bounds) = Rect::from_points(&self.points) {
+            return PathOrBuilder::Path(Path {
+                bounds,
+                verbs: self.verbs,
+                points: self.points,
+            });
+        } else {
+            return PathOrBuilder::Builder(self);
+        }
     }
 }
